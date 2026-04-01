@@ -1,10 +1,12 @@
-# 🧠 Model B — Breast Tumor Segmentation Pipeline
+# 🧠 Breast Tumor Segmentation Pipeline Using an Ensemble of 2.5D Attention U-Net and 3D ResNet Models
 
 > An ensemble segmentation framework combining **2.5D multi-planar** and **3D volumetric** deep learning models for breast tumor segmentation on the ISPY1 DCE-MRI dataset.
+>
+> <img src="images/result.png" width="500">
 
 ---
 
-## 📋 Table of Contents
+## Contents
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
@@ -18,13 +20,13 @@
   - [Training](#training-the-3d-model)
   - [Inference](#inference-with-the-3d-model)
 - [Ensemble](#-ensemble-model)
-- [Key Hyperparameters](#-key-hyperparameters)
+- [Results](#results) 
 
 ---
 
 ## Overview
 
-**Model B** is an ensemble of two complementary segmentation approaches:
+This model is an ensemble of two complementary segmentation approaches:
 
 | Component | Framework | Architecture | Input |
 |-----------|-----------|--------------|-------|
@@ -32,7 +34,7 @@
 | 3D Model | PyTorch / MONAI | 3D U-Net | 3D patches (64×64×64) |
 | Ensemble | — | Averaged probability maps | Full 3D volume |
 
-Both models are trained on **first post-contrast DCE-MRI images** using **structural tumor volume (STV)** manual annotations, with **5-fold cross-validation**.
+Both models were trained on first post-contrast DCE-MRI images using structural tumor volume (STV) manual annotations, with 5-fold cross-validation, based on the dataset provided in the paper "Expert tumor annotations and radiomics for locally advanced breast cancer in DCE-MRI for ACRIN 6657/I-SPY1" (https://doi.org/10.1038/s41597-022-01555-4).
 
 ---
 
@@ -77,7 +79,7 @@ pip install torch monai nibabel scikit-learn pandas matplotlib
 
 ### Architecture
 
-The 2.5D component uses a **shallow Attention Residual U-Net** (`Attention_ResUNet_shallow`) — an encoder–decoder with:
+The 2.5D component uses a **Attention Residual U-Net** (`Attention_ResUNet_shallow`) — an encoder–decoder with:
 
 - **5 resolution levels**, base filters = 16 (doubling per level: 16 → 32 → 64 → 128 → 256)
 - **Residual convolutional blocks** at each encoder/decoder stage
@@ -85,7 +87,6 @@ The 2.5D component uses a **shallow Attention Residual U-Net** (`Attention_ResUN
 - **Loss**: combined Binary Cross-Entropy + Dice (`bce_dice_loss`)
 - **Output**: sigmoid activation → binary segmentation mask
 
-One model instance is trained **per orthogonal plane** (X, Y, Z), giving three independently trained models.
 
 ### Training the 2.5D Model
 
@@ -122,24 +123,8 @@ cd 2d_model
 python main.py
 ```
 
-The script will automatically:
-1. Load all `.nii.gz` volumes and masks from the configured paths
-2. Run 5-fold cross-validation
-3. For each fold: extract 2D slices along X, Y, and Z planes → save as `.png`
-4. Apply data augmentation (random crop, CLAHE, brightness/contrast jitter, flips, rotations)
-5. Train the `Attention_ResUNet_shallow` model with `ModelCheckpoint` (saved on best validation Dice)
-6. Log training metrics to `.log` files
+The script trains one model that is applied to all three planes (X, Y, and Z planes).
 
-> **Tip:** The script trains one model that is applied to all three planes. To train separate specialized models per plane, run the script three times with `SLICE_X`, `SLICE_Y`, `SLICE_Z` toggled in `params.py`.
-
-**Step 3 — Monitor training**
-
-Training logs (loss, Dice per epoch) are saved as CSV files:
-```
-<model_save_path>/Attention_ResUNet_shallow_<fold>.log
-```
-
----
 
 ### Inference with the 2.5D Model
 
@@ -199,7 +184,7 @@ Key training hyperparameters:
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| `epoch_num` | 500 | Max training epochs |
+| `epoch_num` | 100 | Max training epochs |
 | `batch_size` | 4 | Batch size (2 volumes × 4 crops) |
 | `crop_size` | 64 | 3D patch size (64×64×64) |
 | `init_LR` | 0.0001 | Adam learning rate |
@@ -212,33 +197,6 @@ cd 3d_model_monai
 python main_3d.py
 ```
 
-The script will automatically:
-1. Load all `.nii.gz` volumes and masks
-2. Run 5-fold cross-validation
-3. For each fold, apply training transforms:
-   - `CropForegroundd` — crop to non-zero region
-   - `Orientationd` — reorient to RAS
-   - `RandCropByPosNegLabeld` — balanced foreground/background 64³ patches (4 per volume)
-   - `ResizeWithPadOrCropd` — enforce uniform patch size
-4. Train with Adam optimizer and Dice loss
-5. Validate every 2 epochs; save best model checkpoint on highest validation Dice
-
-**Step 3 — Monitor training**
-
-The script prints per-step loss and per-epoch mean Dice:
-```
-epoch 1/500
-1/45, train_loss: 0.8234
-2/45, train_loss: 0.7891
-...
-current epoch: 2  current mean dice: 0.4312
-best mean dice: 0.4312 at epoch: 2
-```
-
-Model checkpoints saved to:
-```
-<model_save_path>/unet_3d_<fold>.pth
-```
 
 ---
 
@@ -274,14 +232,11 @@ with torch.no_grad():
     )
     # prediction shape: (1, 2, H, W, D) — softmax over 2 classes
 ```
-
-The full inference pipeline (with orientation correction and NIfTI export) runs automatically inside `main_3d.py` after each fold's training.
-
 ---
 
 ## 🔀 Ensemble Model
 
-The final **Model B** prediction combines the outputs of both components.
+The final Model prediction combines the outputs of both components.
 
 ### How it works
 
@@ -298,7 +253,7 @@ The final **Model B** prediction combines the outputs of both components.
                                                                                     │
                                                                           Final Segmentation
 ```
-
+---
 ### Running the Ensemble
 
 After training both models, combine their predictions:
@@ -321,41 +276,14 @@ ensemble_mask = (ensemble_prob > 0.5).astype(np.uint8)
 ref = nib.load('path/to/original_volume.nii.gz')
 nib.save(nib.Nifti1Image(ensemble_mask, ref.affine), 'ensemble_prediction.nii.gz')
 ```
+---
+## Results
 
-> **Note:** To obtain soft probability maps from the 2.5D model, call `predictVolume(..., toBin=False)`. For the 3D model, extract `torch.softmax(output, dim=1)[:, 1, ...]` before applying `argmax`.
+Predictions and Dice scores of the ensemble model for the derived I-SPY1 dataset (161 samples), as well as the Dice scores of the baseline model presented in [https://doi.org/10.1038/s41597-022-01555-4], are available in the `Results` folder.
 
 ---
 
-## ⚙️ Key Hyperparameters
 
-### 2.5D Model (`2d_model/params.py`)
-
-```python
-opts['epoch_num']                = 60
-opts['batch_size']               = 16
-opts['crop_size']                = 224      # slice input size in pixels
-opts['init_LR']                  = 0.001
-opts['LR_decay_factor']          = 0.5
-opts['LR_drop_after_nth_epoch']  = 12
-opts['k_fold']                   = 5
-opts['treshold']                 = 0.5
-opts['SLICE_X']                  = True     # use sagittal plane
-opts['SLICE_Y']                  = True     # use coronal plane
-opts['SLICE_Z']                  = True     # use axial plane
-```
-
-### 3D Model (`3d_model_monai/params_3d.py`)
-
-```python
-opts['epoch_num']   = 500
-opts['batch_size']  = 4
-opts['crop_size']   = 64       # 3D patch size: 64×64×64
-opts['init_LR']     = 0.0001
-opts['k_fold']      = 5
-opts['treshold']    = 0.5
-```
-
----
 
 ## 📝 Notes
 
