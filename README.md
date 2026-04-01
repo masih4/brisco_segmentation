@@ -2,7 +2,9 @@
 
 > An ensemble segmentation framework combining **2.5D multi-planar** and **3D volumetric** deep learning models for breast tumor segmentation on the ISPY1 DCE-MRI dataset.
 >
-> <img src="viz.png" width="500">
+<p align="center">
+  <img src="viz.png" width="900">
+</p>
 
 ---
 
