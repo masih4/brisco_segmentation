@@ -289,7 +289,7 @@ Predictions and Dice scores of the ensemble model for the derived I-SPY1 dataset
 
 ## 📝 Notes
 
-- All models are evaluated using the **Dice Similarity Coefficient (DSC)**.
-- Both pipelines use **5-fold cross-validation** with the same random seed (`19`) for reproducibility.
-- Input volumes are **z-score normalized** (bias-corrected, resampled) prior to training.
-- The 2.5D model converts single-channel grayscale slices to **3-channel pseudo-RGB** before passing them to the network.
+- All models are evaluated using the Dice Similarity Coefficient (DSC).
+- Both pipelines use 5-fold cross-validation with the same random seed (`19`) for reproducibility.
+- Input volumes are z-score normalized (bias-corrected, resampled) prior to training.
+- The 2.5D model converts single-channel grayscale slices to 3-channel pseudo-RGB before passing them to the network.
