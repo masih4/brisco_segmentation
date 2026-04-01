@@ -1,4 +1,4 @@
-# 🧠 Breast Tumor Segmentation Pipeline Using an Ensemble of 2.5D Attention U-Net and 3D ResNet Models
+# 🧠 Breast Tumor Segmentation Pipeline Using an Ensemble of 2.5D Residual Attention U-Net and 3D ResNet Models
 
 > An ensemble segmentation framework combining **2.5D multi-planar** and **3D volumetric** deep learning models for breast tumor segmentation on the ISPY1 DCE-MRI dataset.
 >
